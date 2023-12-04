@@ -1,0 +1,1 @@
+# dotnet-exercise-license-management
