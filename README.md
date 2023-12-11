@@ -1,13 +1,11 @@
-# dotnet-exercise-license-management
-
-## Exercise: Create a service to interact with CodeMeter via agiven lib
+# Exercise: Create a service to interact with CodeMeter via agiven lib
 In this project I will try to approach a little functionality I faced
 recently, in a **functional** way.
 
 This is a simplification and an abstraction of the actual functionality, not the full picture.
 Do not critizie its architecture based on how would you have implemented it.
 
-## The functionality
+# The functionality
 `SecureLicense` handles software licenses, both online and offline. It is deployed as a docker container together with the
 solution.
 
@@ -19,12 +17,15 @@ One installation of the solution can either use an `Online` or and `Offline` lic
 The license information to be shown in the UI is the `LicenseStatus` and the `ExpirationDate`. The `LicenseStatus` can be:
 `NOT_LICENSED`, `LICENSED` and `EXPIRED`.
 
-### Online activation
+## Online activation
 The user enters a `TicketId` provided by the monetization team. The solutions validates it online.
 If the activation works, the solution returns the `Status` as `LICENSED` and the expiration date returned.
 Otherwise a the `Status` is `NOT_LICENSED` with a descriptive error message.
 
-### Offline activation
+### Periodical checks
+Every day, the license status has to be checked to determine the `Status` and `ExpirationDate`.
+
+## Offline activation
 The user must follow the following steps: 
 
 1. Download a `Fingerprint File` fom the solution.
@@ -33,33 +34,57 @@ The user must follow the following steps:
  as `LICENSED` and the expiration date returned. Otherwise a the `Status` is `NOT_LICENSED` with a descriptive error message.
 4. Download a `Receipt File` from the solution.
 
-### Periodical checks
-Every day, the license status has to be checked to determine the `Status` and `ExpirationDate`.
+## Testability
+The `licensing-service` needs to bee easily configured to skipp all real interaction with the `SecureLicense` container. This will enable developers, testerd and CI/CD pipelines to work on the solution without actually managing licenses.
 
 ## How to access SecureLicense
 To access it, the monetization team has developed the library `SecureLicenseAccess`.
 
-### Validating a ticket online
+It provides the following interfaces:
 
+```
+SecureLicenseHelper
+{
+    // Returns a license handle
+    int AccessLicense(string firmCode, productCode, 0, false)
+    
+    // Returns the expiration date for the specified license handle
+    Date GetLicenseExpiration(int handle)
+    
+    // Signals that no more ations are going to be done with the specified handle
+    void ReleaseLicense(int handle)
+
+    //Imports a license template file
+    string ImportLicenseInformationFile(Stream licenseTemplateFile);
+    
+    // Returns a receipt file
+    string GetRemoteContext(string serialNumber)
+
+    // Imports a license file. 
+    string SetRemoteContext(Stream licenseFile, serialNumber);
+}
+```
+
+```
+JavaActivationWizard
+{
+    // Activates a license online and returns the status
+    int ActivateTicket(ticketId, string CmActId, true);
+
+    // Refreshes the status of all the licenses
+    void AutoUpdateCmContainers()
+}
+```
 
 ### Creating a Fingerprint file
 The solution must have a `Template File` that is provided by the monetization team.
 
-The `Template File` is passed to the `SecureLicenseAccess` to generate a 
-`SerialNumber`, which then is stored. The `SerialNumber` is then passed again to the `SecureLicenseAccess` to generate the
-`Fingerprint File`. The `Fingerprint File` is returned to the client.
-
-### Checking license
- The `licensing-service` passes the `SerialNumber` and the uploaded `License File` to the
- `SecureLicenseAccess`. Then the `Status` has to be checked by getting the `ExpirationDate` from `SecureLicenseAccess`.
-
-If the activation is successful the `licensing-service` returns the `Status` as `LICENSED` 
-and the expiration date returned by `SecureLicenseAccess`. Otherwise a descriptive error message.
-
-### Creating a receipt
-The `licensing-service` passes the `SerialNumber` to the to the
- `SecureLicenseAccess` and returns the `Receipt File`.
-
 ### Recommendations
-The monetization team recommends that the solution stores the `TicketId` or the `SerialNumber` by itself, since it is necessary
- for many interactions with the library.
+The monetization team recommends that the solution stores the `TicketId` or the `SerialNumber` by itself, since it is necessary for many interactions with the library.
+
+## Implementation constrains
+- Only the `licensing-service` will be implemented.
+- Only the `SecureLicenseAccess` library will be used to communicate with `SecureAccess`.
+
+## My take on how to implement it
+My goal is to use Vertical Slice Architecture and functional programming principles to implement this whole logic.
